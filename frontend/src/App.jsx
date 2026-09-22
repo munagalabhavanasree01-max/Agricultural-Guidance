@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Leaf } from 'lucide-react';
 import GuidanceForm from './components/GuidanceForm';
 import ResultCards from './components/ResultCards';
+import logoImg from './assets/logo.png';
 
 function App() {
   const [resultData, setResultData] = useState(null);
@@ -35,8 +36,8 @@ function App() {
       {/* Header */}
       <header className="bg-green-700 text-white shadow-md mb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Leaf className="h-8 w-8 text-green-300" />
+          <div className="flex items-center space-x-3">
+            <img src={logoImg} alt="AgriNLP Logo" className="h-12 w-auto bg-white rounded-md p-1 shadow-sm" />
             <h1 className="text-2xl font-bold tracking-tight">AgriNLP</h1>
           </div>
           <p className="text-green-100 text-sm hidden sm:block">AI-Powered Agricultural Guidance</p>
