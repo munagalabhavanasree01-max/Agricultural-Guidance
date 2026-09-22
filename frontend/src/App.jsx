@@ -40,7 +40,7 @@ function App() {
             <img src={logoImg} alt="AgriNLP Logo" className="h-12 w-auto bg-white rounded-md p-1 shadow-sm" />
             <h1 className="text-2xl font-bold tracking-tight">AgriNLP</h1>
           </div>
-          <p className="text-green-100 text-sm hidden sm:block">AI-Powered Agricultural Guidance</p>
+          <p className="text-green-100 text-sm hidden sm:block">AI-Powered Agricultural Guidance.</p>
         </div>
       </header>
 
