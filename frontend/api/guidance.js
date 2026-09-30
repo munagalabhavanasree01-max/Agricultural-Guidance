@@ -76,6 +76,14 @@ export default async function handler(req, res) {
   }
 
   try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-flash-latest",
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: schema,
+      }
+    });
+
     const promptText = `You are an expert agricultural scientist and meteorologist. Provide agricultural guidance for growing ${crop} in ${location}. 
     Additional context or specific query from user: ${query || 'None'}.
     CRITICAL INSTRUCTIONS:
@@ -84,33 +92,26 @@ export default async function handler(req, res) {
     3. Determine the EXACT 6-month time period that is most profitable and practical for growing '${crop}' in '${location}', considering peak water availability and risk avoidance.
     4. In the recommendedPlantingMonth field, explicitly state this 6-month period (e.g., "Month to Month") and briefly explain why it is the best window based on local weather and water.
     5. Ensure your analysis is strictly tailored to the requested crop and location.
-    6. Make sure fertilizer recommendations use Indian market names (e.g. Urea, DAP, MOP, SSP, NPK).
-    
-    IMPORTANT: You must return the response as a single, valid JSON object containing exactly the following keys and no other text or markdown formatting:
-    - "cropInformation": string
-    - "suitableGrowingPeriod": string
-    - "recommendedPlantingMonth": string
-    - "fertilizerRecommendations": array of strings
-    - "irrigationGuidance": string
-    - "seasonalMarketDemand": string
-    - "expectedHarvestingTime": string
-    - "farmingSuggestions": array of strings`;
+    6. Make sure fertilizer recommendations use Indian market names (e.g. Urea, DAP, MOP, SSP, NPK).`;
 
     let guidanceData = null;
+    let retries = 3;
     let lastError = null;
 
-    const modelsToTry = [
-      { name: "gemini-1.5-flash", useSchema: true },
-      { name: "gemini-1.5-pro", useSchema: true },
-      { name: "gemini-pro", useSchema: false }
-    ];
-
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
-      const data = await response.json();
-      return res.status(200).json({ diagnostic_models: data });
-    } catch (err) {
-      lastError = err;
+    while (retries > 0) {
+      try {
+        const result = await model.generateContent(promptText);
+        const responseText = result.response.text();
+        guidanceData = JSON.parse(responseText);
+        break; // Success, exit loop
+      } catch (err) {
+        lastError = err;
+        console.error('Attempt failed:', err.message, err.cause);
+        retries--;
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
     }
 
     if (!guidanceData) {
