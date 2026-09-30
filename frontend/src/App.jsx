@@ -45,7 +45,7 @@ function App() {
       };
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-flash-latest",
+        model: "gemini-3.5-flash",
         generationConfig: {
           responseMimeType: "application/json",
           responseSchema: schema,
