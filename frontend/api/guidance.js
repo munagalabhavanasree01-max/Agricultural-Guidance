@@ -105,30 +105,12 @@ export default async function handler(req, res) {
       { name: "gemini-pro", useSchema: false }
     ];
 
-    for (const modelConfig of modelsToTry) {
-      try {
-        const config = modelConfig.useSchema ? {
-          model: modelConfig.name,
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: schema,
-          }
-        } : { model: modelConfig.name };
-
-        const model = genAI.getGenerativeModel(config);
-        const result = await model.generateContent(promptText);
-        let responseText = result.response.text();
-        
-        // Clean markdown JSON blocks just in case
-        responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
-        guidanceData = JSON.parse(responseText);
-        break; // Success, exit loop
-      } catch (err) {
-        lastError = err;
-        console.error(`Attempt with ${modelConfig.name} failed:`, err.message);
-        // If the error isn't a 404 (not found) or 400 (bad request due to schema), we might just retry, 
-        // but for robustness we just move to the next model.
-      }
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
+      const data = await response.json();
+      return res.status(200).json({ diagnostic_models: data });
+    } catch (err) {
+      lastError = err;
     }
 
     if (!guidanceData) {
