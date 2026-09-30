@@ -121,6 +121,6 @@ export default async function handler(req, res) {
     return res.status(200).json(guidanceData);
   } catch (error) {
     console.error('Final error generating guidance:', error.message, error.cause);
-    return res.status(500).json({ error: 'Failed to generate agricultural guidance. Please try again.' });
+    return res.status(500).json({ error: `Failed to generate agricultural guidance. Please try again. Details: ${error.message}` });
   }
 }
