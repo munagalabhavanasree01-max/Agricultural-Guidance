@@ -16,9 +16,8 @@ function App() {
     setResultData(null);
     
     try {
-      // In a real app, URL should be in env
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const response = await axios.post(`${apiUrl}/api/guidance`, formData);
+      // Use relative URL so it works with Vercel serverless functions
+      const response = await axios.post(`/api/guidance`, formData);
       setResultData(response.data);
     } catch (err) {
       console.error(err);
