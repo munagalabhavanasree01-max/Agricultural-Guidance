@@ -77,7 +77,11 @@ export default async function handler(req, res) {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-pro"
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: schema,
+      }
     });
 
     const prompt = `You are an expert agricultural scientist and meteorologist. Provide agricultural guidance for growing ${crop} in ${location}. 
@@ -88,17 +92,7 @@ export default async function handler(req, res) {
     3. Determine the EXACT 6-month time period that is most profitable and practical for growing '${crop}' in '${location}', considering peak water availability and risk avoidance.
     4. In the recommendedPlantingMonth field, explicitly state this 6-month period (e.g., "Month to Month") and briefly explain why it is the best window based on local weather and water.
     5. Ensure your analysis is strictly tailored to the requested crop and location.
-    6. Make sure fertilizer recommendations use Indian market names (e.g. Urea, DAP, MOP, SSP, NPK).
-    
-    IMPORTANT: You must return the response as a single, valid JSON object containing exactly the following keys and no other text or markdown formatting:
-    - "cropInformation": string
-    - "suitableGrowingPeriod": string
-    - "recommendedPlantingMonth": string
-    - "fertilizerRecommendations": array of strings
-    - "irrigationGuidance": string
-    - "seasonalMarketDemand": string
-    - "expectedHarvestingTime": string
-    - "farmingSuggestions": array of strings`;
+    6. Make sure fertilizer recommendations use Indian market names (e.g. Urea, DAP, MOP, SSP, NPK).`;
 
     let guidanceData = null;
     let retries = 3;
@@ -107,9 +101,7 @@ export default async function handler(req, res) {
     while (retries > 0) {
       try {
         const result = await model.generateContent(prompt);
-        let responseText = result.response.text();
-        // Remove markdown formatting if present
-        responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const responseText = result.response.text();
         guidanceData = JSON.parse(responseText);
         break; // Success, exit loop
       } catch (err) {
