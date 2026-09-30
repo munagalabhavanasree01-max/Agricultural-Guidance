@@ -76,15 +76,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-      }
-    });
-
-    const prompt = `You are an expert agricultural scientist and meteorologist. Provide agricultural guidance for growing ${crop} in ${location}. 
+    const promptText = `You are an expert agricultural scientist and meteorologist. Provide agricultural guidance for growing ${crop} in ${location}. 
     Additional context or specific query from user: ${query || 'None'}.
     CRITICAL INSTRUCTIONS:
     1. Deeply analyze the specific local climate, historical weather patterns, and present climatic conditions of '${location}' for the specific crop '${crop}'.
@@ -92,25 +84,50 @@ export default async function handler(req, res) {
     3. Determine the EXACT 6-month time period that is most profitable and practical for growing '${crop}' in '${location}', considering peak water availability and risk avoidance.
     4. In the recommendedPlantingMonth field, explicitly state this 6-month period (e.g., "Month to Month") and briefly explain why it is the best window based on local weather and water.
     5. Ensure your analysis is strictly tailored to the requested crop and location.
-    6. Make sure fertilizer recommendations use Indian market names (e.g. Urea, DAP, MOP, SSP, NPK).`;
+    6. Make sure fertilizer recommendations use Indian market names (e.g. Urea, DAP, MOP, SSP, NPK).
+    
+    IMPORTANT: You must return the response as a single, valid JSON object containing exactly the following keys and no other text or markdown formatting:
+    - "cropInformation": string
+    - "suitableGrowingPeriod": string
+    - "recommendedPlantingMonth": string
+    - "fertilizerRecommendations": array of strings
+    - "irrigationGuidance": string
+    - "seasonalMarketDemand": string
+    - "expectedHarvestingTime": string
+    - "farmingSuggestions": array of strings`;
 
     let guidanceData = null;
-    let retries = 3;
     let lastError = null;
 
-    while (retries > 0) {
+    const modelsToTry = [
+      { name: "gemini-1.5-flash", useSchema: true },
+      { name: "gemini-1.5-pro", useSchema: true },
+      { name: "gemini-pro", useSchema: false }
+    ];
+
+    for (const modelConfig of modelsToTry) {
       try {
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        const config = modelConfig.useSchema ? {
+          model: modelConfig.name,
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: schema,
+          }
+        } : { model: modelConfig.name };
+
+        const model = genAI.getGenerativeModel(config);
+        const result = await model.generateContent(promptText);
+        let responseText = result.response.text();
+        
+        // Clean markdown JSON blocks just in case
+        responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
         guidanceData = JSON.parse(responseText);
         break; // Success, exit loop
       } catch (err) {
         lastError = err;
-        console.error(`Attempt failed (${4 - retries}/3):`, err.message, err.cause);
-        retries--;
-        if (retries > 0) {
-          await new Promise(resolve => setTimeout(resolve, 2000)); // wait 2 seconds before retry
-        }
+        console.error(`Attempt with ${modelConfig.name} failed:`, err.message);
+        // If the error isn't a 404 (not found) or 400 (bad request due to schema), we might just retry, 
+        // but for robustness we just move to the next model.
       }
     }
 
