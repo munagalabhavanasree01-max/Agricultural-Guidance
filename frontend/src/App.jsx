@@ -16,14 +16,63 @@ function App() {
     setResultData(null);
     
     try {
-      // Use relative URL so it works with Vercel serverless functions
-      const response = await axios.post(`/api/guidance`, formData);
-      setResultData(response.data);
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error('VITE_GEMINI_API_KEY is not defined in your environment variables.');
+      }
+
+      // Dynamically import to avoid breaking the frontend bundle if there are issues
+      const { GoogleGenerativeAI, SchemaType } = await import('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(apiKey);
+
+      const schema = {
+        type: SchemaType.OBJECT,
+        properties: {
+          cropInformation: { type: SchemaType.STRING, description: "General information about the crop." },
+          suitableGrowingPeriod: { type: SchemaType.STRING, description: "The suitable growing period or season for the crop." },
+          recommendedPlantingMonth: { type: SchemaType.STRING, description: "Explicitly mention the 6-month time period of the year when it will be most suitable and profitable to grow this crop." },
+          fertilizerRecommendations: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Fertilizer recommendations specifically using Indian fertilizer names like Urea, DAP, MOP, SSP, NPK, etc." },
+          irrigationGuidance: { type: SchemaType.STRING, description: "Detailed irrigation guidance." },
+          seasonalMarketDemand: { type: SchemaType.STRING, description: "Market demand analysis for the selected time period/season." },
+          expectedHarvestingTime: { type: SchemaType.STRING, description: "The expected harvesting time/month based on the recommended planting month." },
+          farmingSuggestions: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Important farming suggestions or best practices." }
+        },
+        required: [
+          "cropInformation", "suitableGrowingPeriod", "recommendedPlantingMonth",
+          "fertilizerRecommendations", "irrigationGuidance", "seasonalMarketDemand",
+          "expectedHarvestingTime", "farmingSuggestions"
+        ]
+      };
+
+      const model = genAI.getGenerativeModel({
+        model: "gemini-flash-latest",
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+        }
+      });
+
+      const { crop, location, query } = formData;
+      const promptText = `You are an expert agricultural scientist and meteorologist. Provide agricultural guidance for growing ${crop} in ${location}. 
+      Additional context or specific query from user: ${query || 'None'}.
+      CRITICAL INSTRUCTIONS:
+      1. Deeply analyze the specific local climate, historical weather patterns, and present climatic conditions of '${location}' for the specific crop '${crop}'.
+      2. Consider regional monsoon behaviors, water availability, and real-world risks (such as cyclones, droughts, or extreme heat) that affect '${location}'.
+      3. Determine the EXACT 6-month time period that is most profitable and practical for growing '${crop}' in '${location}', considering peak water availability and risk avoidance.
+      4. In the recommendedPlantingMonth field, explicitly state this 6-month period (e.g., "Month to Month") and briefly explain why it is the best window based on local weather and water.
+      5. Ensure your analysis is strictly tailored to the requested crop and location.
+      6. Make sure fertilizer recommendations use Indian market names (e.g. Urea, DAP, MOP, SSP, NPK).`;
+
+      const result = await model.generateContent(promptText);
+      const responseText = result.response.text();
+      const guidanceData = JSON.parse(responseText);
+      
+      setResultData(guidanceData);
     } catch (err) {
       console.error(err);
       setError(
-        err.response?.data?.error || 
-        'Failed to fetch guidance. Please make sure the backend server is running and the Gemini API key is valid.'
+        err.message || 
+        'Failed to generate guidance. Please try again.'
       );
     } finally {
       setIsLoading(false);
